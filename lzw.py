@@ -62,7 +62,7 @@ def binary_lzw_encode(s, starting_dictionary, starting_width=None, clear_code=No
                     encoding.append(binary_utils.int_to_binary_string_padded(dictionary[s[z : z2]], current_width))
             else:
                 encoding.append(binary_utils.int_to_binary_string_padded(dictionary[s[z : z2]], current_width))
-                if binary_utils.min_binary_width(next_code) != current_width:
+                if binary_utils.min_binary_width(next_code) > current_width:
                     current_width += 1
                 dictionary[s[z : z2 + 1]] = next_code
                 next_code += 1
@@ -140,7 +140,7 @@ def binary_lzw_decode(encoding, starting_dictionary, starting_width=None, clear_
         
         z += current_width
 
-        if binary_utils.min_binary_width(next_code) != current_width:
+        if binary_utils.min_binary_width(next_code) > current_width:
             current_width += 1
 
     return decoding
@@ -172,31 +172,33 @@ def test_binary(s, starting_dictionary):
     else:
         print("No match!")
 
-# https://marknelson.us/posts/2011/11/08/lzw-revisited
-test_simple(
-    "ABBABBBABBA",
-    construct_dictionary_from_alphabet("AB")
-)
-# https://en.wikipedia.org/wiki/Lempel-Ziv-Welch#Example
-test_simple(
-    "TOBEORNOTTOBEORTOBEORNOT",
-    construct_dictionary_from_alphabet(string.ascii_uppercase)
-)
-# https://stackoverflow.com/q/63493612
-test_simple(
-    "ababcbababaaaaaaa",
-    construct_dictionary_from_alphabet("abc")
-)
+if __name__ == "__main__":
 
-test_binary(
-    "ABBABBB#ABBA",
-    construct_dictionary_from_alphabet("AB", True)
-)
-test_binary(
-    "TOBEORNOTTOBEORTOBE#ORNOT",
-    construct_dictionary_from_alphabet(string.ascii_uppercase, True)
-)
-test_binary(
-    "ababcbababa#aaaaaa",
-    construct_dictionary_from_alphabet("abc", True)
-)
+    # https://marknelson.us/posts/2011/11/08/lzw-revisited
+    test_simple(
+        "ABBABBBABBA",
+        construct_dictionary_from_alphabet("AB")
+    )
+    # https://en.wikipedia.org/wiki/Lempel-Ziv-Welch#Example
+    test_simple(
+        "TOBEORNOTTOBEORTOBEORNOT",
+        construct_dictionary_from_alphabet(string.ascii_uppercase)
+    )
+    # https://stackoverflow.com/q/63493612
+    test_simple(
+        "ababcbababaaaaaaa",
+        construct_dictionary_from_alphabet("abc")
+    )
+
+    test_binary(
+        "ABBABBB#ABBA",
+        construct_dictionary_from_alphabet("AB", True)
+    )
+    test_binary(
+        "TOBEORNOTTOBEORTOBE#ORNOT",
+        construct_dictionary_from_alphabet(string.ascii_uppercase, True)
+    )
+    test_binary(
+        "ababcbababa#aaaaaa",
+        construct_dictionary_from_alphabet("abc", True)
+    )
