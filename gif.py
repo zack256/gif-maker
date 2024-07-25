@@ -1,21 +1,7 @@
 import os
 import sys
 
-def bytes_to_bit_list(byts):
-    bits = []
-    for byte in byts:
-        bin_string = bin(byte)[2:]
-        bin_string = "0" * (8 - len(bin_string)) + bin_string
-        bits += list(bin_string)
-    return bits
-
-def bit_list_to_bytes(bit_list):
-    byts = []
-    if len(bit_list) > 8 and len(bit_list) % 8:
-        raise Exception("If multiple bits, bit list must be divisible by 8")
-    for i in range(0, len(bit_list), 8):
-        byts.append(int("".join(map(str, bit_list[i : i + 8])), 2))
-    return bytes(byts)
+import binary_utils
 
 def read_header(fi):
     signature = fi.read(3)
@@ -25,16 +11,67 @@ def read_logical_screen_descriptor(fi):
     logical_screen_width = int.from_bytes(fi.read(2), "little")
     logical_screen_height = int.from_bytes(fi.read(2), "little")
 
-    packed_fields = bytes_to_bit_list(fi.read(1))
+    packed_fields = binary_utils.bytes_to_bit_list(fi.read(1))
+    global_color_table_flag = packed_fields[0]
+    color_resolution = int.from_bytes(binary_utils.bit_list_to_bytes(packed_fields[1:4]), "little")
+    sort_flag = packed_fields[4]
+    size_of_global_color_table = int.from_bytes(binary_utils.bit_list_to_bytes(packed_fields[5:]), "little")
 
     background_color_index = int.from_bytes(fi.read(1), "little")
     pixel_aspect_ratio = int.from_bytes(fi.read(1), "little")
+
+    return size_of_global_color_table
+
+def read_global_color_table(fi, size_of_global_color_table):
+    number_of_rgb_colors = 2 ** (size_of_global_color_table + 1)
+    global_color_table = []
+    for i in range(number_of_rgb_colors):
+        red = int.from_bytes(fi.read(1), "little")
+        green = int.from_bytes(fi.read(1), "little")
+        blue = int.from_bytes(fi.read(1), "little")
+        global_color_table.append((red, green, blue))
+    return global_color_table
+
+def read_image_descriptor(fi):
+    image_separator = fi.read(1)
+    if image_separator != b',':
+        raise Exception("GIF error: Image Separator must be 0x2C")
+    image_left_position = int.from_bytes(fi.read(2), "little")
+    image_top_position = int.from_bytes(fi.read(2), "little")
+    image_width = int.from_bytes(fi.read(2), "little")
+    image_height = int.from_bytes(fi.read(2), "little")
+
+    packed_fields = binary_utils.bytes_to_bit_list(fi.read(1))
+    local_color_table_flag = packed_fields[0]
+    interlace_flag = packed_fields[1]
+    sort_flag = packed_fields[2]
+    # 2 bits ([3] and [4]) are reserved.
+    size_of_local_color_table = int.from_bytes(binary_utils.bit_list_to_bytes(packed_fields[5:]), "little")
+
+def read_table_based_image_data(fi, color_table):
+    lzw_minimum_code_size = int.from_bytes(fi.read(1), "little")
+    clear_code = 2 ** lzw_minimum_code_size
+    end_of_information_code = clear_code + 1
+    
+    image_data = b''
+
+    blocks_read = 0
+    while True:
+        block_size = int.from_bytes(fi.read(1), "little")
+        if block_size == 0:
+            break
+        block = fi.read(block_size)
+        image_data += block
+        blocks_read += 1
 
 def disect_gif_file (file_path):
 
     with open(file_path, "rb") as fi:
         read_header(fi)
-        read_logical_screen_descriptor(fi)        
+        size_of_global_color_table = read_logical_screen_descriptor(fi)
+        global_color_table = read_global_color_table(fi, size_of_global_color_table)
+        read_image_descriptor(fi)   
+        read_table_based_image_data(fi, global_color_table)
 
 def main (*args):
     if args:
